@@ -46,6 +46,14 @@ let filterTimer = null;
 let pollTimer = null;
 let latestSnapshot = null;
 let resultDialogStatus = null;
+const resultSearchState = {
+  key: null,
+  version: 0,
+  timer: null,
+  matches: null,
+  pending: false,
+  error: "",
+};
 
 // 浏览器禁用存储时继续使用当前页，不把存储异常当成服务故障。
 function readSessionValue(key) {
@@ -486,9 +494,87 @@ resultModelsDialog.addEventListener("click", (event) => {
   }
 });
 
-// 刷新结果时保留展开项，避免实时更新打断查看错误详情。
+// 复用候选模型的本地匹配规则，按名称保留双协议记录，不触发上游调用。
+function syncResultSearch(job) {
+  if (resultSearchState.timer !== null) return;
+  const filter = {
+    mode: $("resultFilterMode").value,
+    pattern: $("resultFilterPattern").value,
+    case_sensitive: $("resultCaseSensitive").checked,
+  };
+  if (!filter.pattern.trim()) {
+    if (resultSearchState.key !== null) ++resultSearchState.version;
+    resultSearchState.key = null;
+    resultSearchState.matches = null;
+    resultSearchState.pending = false;
+    resultSearchState.error = "";
+    return;
+  }
+  const names = [...new Set(job.results.map((result) => result.model))];
+  const key = JSON.stringify([job.id, names, filter]);
+  // 同一任务仅状态变化时复用名称匹配结果，避免每次轮询重新搜索。
+  if (key === resultSearchState.key) return;
+  const version = ++resultSearchState.version;
+  resultSearchState.key = key;
+  resultSearchState.matches = new Set();
+  resultSearchState.pending = true;
+  resultSearchState.error = "";
+  api("/api/filter", { models: names.map((id) => ({ id })), filter })
+    .then((data) => {
+      if (version !== resultSearchState.version) return;
+      resultSearchState.matches = new Set(data.models.map((model) => model.id));
+      resultSearchState.pending = false;
+      if (latestSnapshot) renderJob(latestSnapshot);
+    })
+    .catch((error) => {
+      if (version !== resultSearchState.version) return;
+      resultSearchState.pending = false;
+      resultSearchState.error = error.message;
+      if (latestSnapshot) renderJob(latestSnapshot);
+    });
+}
+
+function resultSearchChanged() {
+  clearTimeout(resultSearchState.timer);
+  ++resultSearchState.version;
+  resultSearchState.key = null;
+  resultSearchState.timer = null;
+  resultSearchState.matches = null;
+  resultSearchState.pending = false;
+  resultSearchState.error = "";
+  $("resultMatchHint").textContent =
+    $("resultFilterMode").value === "glob"
+      ? "* 任意长度 · ? 单个字符 · 例如 *_flash_*"
+      : "多个规则换行输入，满足任意一条即可";
+  if ($("resultFilterPattern").value.trim() && latestSnapshot) {
+    resultSearchState.matches = new Set();
+    resultSearchState.pending = true;
+    resultSearchState.timer = setTimeout(() => {
+      resultSearchState.timer = null;
+      if (latestSnapshot) renderJob(latestSnapshot);
+    }, 180);
+  }
+  if (latestSnapshot) renderJob(latestSnapshot);
+}
+
+for (const id of [
+  "resultFilterMode",
+  "resultFilterPattern",
+  "resultCaseSensitive",
+])
+  $(id).addEventListener("input", resultSearchChanged);
+$("clearResultSearch").addEventListener("click", () => {
+  $("resultFilterPattern").value = "";
+  $("resultFilterMode").value = "contains";
+  $("resultCaseSensitive").checked = false;
+  resultSearchChanged();
+  $("resultFilterPattern").focus();
+});
+
+// 刷新结果时保留搜索条件和展开项，避免实时更新打断查看。
 function renderJob(job) {
   latestSnapshot = job;
+  syncResultSearch(job);
   const counts = job.counts;
   $("statProgress").innerHTML =
     `${job.completed} <small>/ ${job.total}</small>`;
@@ -524,6 +610,11 @@ function renderJob(job) {
   $("resultsBody").innerHTML = job.results
     .map((result, index) => {
       if (filter !== "all" && result.status !== filter) return "";
+      if (
+        resultSearchState.matches &&
+        !resultSearchState.matches.has(result.model)
+      )
+        return "";
       shown++;
       const detail = {
         "HTTP 状态": result.http_status,
@@ -549,6 +640,20 @@ function renderJob(job) {
     })
     .join("");
   $("noResults").hidden = shown > 0;
+  $("noResults").textContent = resultSearchState.pending
+    ? "正在匹配模型名称…"
+    : resultSearchState.error
+      ? "暂时无法显示匹配结果，请调整搜索或清空搜索重试。"
+      : "当前搜索和状态条件下没有结果";
+  $("resultMatchCount").textContent = resultSearchState.pending
+    ? "正在搜索…"
+    : resultSearchState.error
+      ? "搜索未完成"
+      : `显示 ${shown} / ${job.results.length} 条结果`;
+  $("resultSearchError").hidden = !resultSearchState.error;
+  $("resultSearchError").textContent = resultSearchState.error
+    ? `搜索失败：${resultSearchState.error}`
+    : "";
   setRunning(job.status === "running");
   if (resultModelsDialog.open) renderResultModelsDialog();
 }

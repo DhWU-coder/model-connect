@@ -917,6 +917,44 @@ progress::-moz-progress-bar {
   margin: 0;
   font-size: 10px;
 }
+/* 结果搜索沿用名称筛选控件，窄屏时可换行且不影响状态筛选。 */
+.result-search {
+  margin-top: 14px;
+}
+.result-search .filter-row {
+  flex-wrap: wrap;
+}
+.result-search .filter-row textarea {
+  min-width: 150px;
+}
+.result-search-clear {
+  height: 41px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--label);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.result-search-clear:hover {
+  background: var(--surface-hover);
+}
+.result-search-clear:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+.result-search-meta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  margin-top: 9px;
+}
+.result-search-error {
+  color: var(--error-ink);
+  margin: 8px 0 0;
+}
 .results-empty {
   padding: 35px 15px 40px;
 }

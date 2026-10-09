@@ -391,6 +391,59 @@
                 <option value="cancelled">已取消</option>
               </select>
             </div>
+            <!-- 结果名称搜索独立于候选选择，检测进行中也可以使用。 -->
+            <div
+              class="result-search"
+              role="group"
+              aria-label="检测结果模型名称筛选"
+            >
+              <div class="filter-row">
+                <select id="resultFilterMode" aria-label="结果模型名称匹配方式">
+                  <option value="contains">名称包含</option>
+                  <option value="prefix">名称开头</option>
+                  <option value="suffix">名称结尾</option>
+                  <option value="glob">通配符</option>
+                  <option value="exact">精确匹配</option>
+                </select>
+                <textarea
+                  id="resultFilterPattern"
+                  rows="1"
+                  maxlength="4096"
+                  aria-label="结果模型名称搜索规则"
+                  placeholder="搜索结果模型，多个规则可换行"
+                ></textarea>
+                <label class="case-switch"
+                  ><input
+                    id="resultCaseSensitive"
+                    type="checkbox"
+                  />区分大小写</label
+                >
+                <button
+                  id="clearResultSearch"
+                  type="button"
+                  class="result-search-clear"
+                >
+                  清空搜索
+                </button>
+              </div>
+              <div class="result-search-meta">
+                <span
+                  id="resultMatchCount"
+                  class="muted small"
+                  aria-live="polite"
+                  >尚无检测结果</span
+                >
+                <span id="resultMatchHint" class="muted small"
+                  >多个规则换行输入，满足任意一条即可</span
+                >
+              </div>
+              <p
+                id="resultSearchError"
+                class="result-search-error small"
+                role="alert"
+                hidden
+              ></p>
+            </div>
             <div id="resultsEmpty" class="empty results-empty">
               <span class="empty-icon">↗</span>
               <h3>让每个模型实际回答一次</h3>
@@ -411,7 +464,7 @@
                 <tbody id="resultsBody"></tbody>
               </table>
               <p id="noResults" class="empty small" hidden>
-                当前状态下没有结果
+                当前搜索和状态条件下没有结果
               </p>
             </div>
           </section>
