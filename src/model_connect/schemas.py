@@ -169,7 +169,7 @@ class ProbeRequest(BaseModel):
     prompt: str = Field(default="只回复hi", min_length=1, max_length=4000)
     concurrency: int = Field(default=3, ge=1, le=20)
     timeout: float = Field(default=30, ge=1, le=300)
-    max_tokens: int = Field(default=256, ge=16, le=8192)
+    max_tokens: int = Field(default=64, ge=16, le=8192)
     retries: int = Field(default=0, ge=0, le=3)
     force: bool = False
 

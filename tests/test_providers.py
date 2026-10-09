@@ -17,7 +17,7 @@ from model_connect.schemas import Connection, ModelFilter, ProbeRequest
             "openai",
             "responses",
             "/v1/responses",
-            {"input": "只回复hi", "max_output_tokens": 256, "store": False},
+            {"input": "只回复hi", "max_output_tokens": 64, "store": False},
             {
                 "output": [{"type": "message", "content": [{"type": "output_text", "text": "hi"}]}],
                 "status": "completed",
@@ -28,28 +28,28 @@ from model_connect.schemas import Connection, ModelFilter, ProbeRequest
             "openai",
             "chat",
             "/v1/chat/completions",
-            {"max_completion_tokens": 256},
+            {"max_completion_tokens": 64},
             {"choices": [{"message": {"content": "hi"}, "finish_reason": "stop"}]},
         ),
         (
             "openai_compatible",
             "chat",
             "/v1/chat/completions",
-            {"max_tokens": 256},
+            {"max_tokens": 64},
             {"choices": [{"message": {"content": "hi"}}]},
         ),
         (
             "anthropic",
             "messages",
             "/v1/messages",
-            {"max_tokens": 256},
+            {"max_tokens": 64},
             {"content": [{"type": "text", "text": "hi"}], "stop_reason": "end_turn"},
         ),
         (
             "google",
             "generateContent",
             "/v1/models/demo:generateContent",
-            {"generationConfig": {"maxOutputTokens": 256}},
+            {"generationConfig": {"maxOutputTokens": 64}},
             {
                 "candidates": [
                     {
@@ -226,7 +226,7 @@ async def test_token_fallback_and_secret_redaction():
                 400,
                 json={"error": {"message": "max_tokens unsupported, use max_completion_tokens"}},
             )
-        assert payload["max_completion_tokens"] == 256
+        assert payload["max_completion_tokens"] == 64
         return httpx.Response(
             200, json={"choices": [{"message": {"content": "hi secret-key header-secret"}}]}
         )
