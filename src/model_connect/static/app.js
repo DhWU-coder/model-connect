@@ -49,6 +49,7 @@ let filterVersion = 0;
 let filterTimer = null;
 let pollTimer = null;
 let latestSnapshot = null;
+let resultDialogStatus = null;
 
 function escapeHtml(value) {
   return String(value ?? "").replace(
@@ -345,6 +346,81 @@ $("importModels").addEventListener("change", async (event) => {
   }
 });
 
+// 弹窗读取完整快照，不受主表筛选影响，也不发起新的模型调用。
+function renderResultModelsDialog() {
+  const status = resultDialogStatus;
+  if (!status) return;
+  const results = (latestSnapshot?.results || []).filter(
+    (result) => result.status === status,
+  );
+  const label = statusLabels[status];
+  const modelCount = new Set(results.map((result) => result.model)).size;
+  $("resultModelsTitle").textContent = `${label}的模型`;
+  $("resultModelsSummary").textContent =
+    `${modelCount} 个模型 · ${results.length} 条调用结果${latestSnapshot?.status === "running" ? " · 检测进行中" : ""}`;
+  const list = $("resultModelsList");
+  const scrollTop = list.scrollTop;
+  const protocolLabels = {
+    chat: "Chat Completions",
+    responses: "Responses",
+    messages: "Messages",
+    generateContent: "generateContent",
+  };
+  list.innerHTML = results.length
+    ? results
+        .map((result) => {
+          const latency =
+            result.latency_ms == null
+              ? "—"
+              : result.latency_ms < 1000
+                ? `${result.latency_ms} ms`
+                : `${(result.latency_ms / 1000).toFixed(2)} s`;
+          const content =
+            status === "failed"
+              ? result.error || "未提供错误详情"
+              : result.text || "未提供回复文本";
+          return `<li class="dialog-model-row"><div class="dialog-model-heading"><code class="dialog-model-name">${escapeHtml(result.model)}</code><span class="status ${status}">${escapeHtml(protocolLabels[result.protocol] || result.protocol)}</span></div><p class="dialog-result-meta">HTTP ${escapeHtml(result.http_status ?? "未返回")} · ${escapeHtml(latency)}</p><pre class="dialog-result-text ${status === "failed" ? "result-error" : ""}">${escapeHtml(content)}</pre></li>`;
+        })
+        .join("")
+    : `<li class="empty dialog-empty">暂无${label}的模型${latestSnapshot?.status === "running" ? "，等待检测结果更新。" : "。"}</li>`;
+  // 检测结果刷新时保留当前阅读位置，关闭按钮的焦点也保持不变。
+  list.scrollTop = scrollTop;
+}
+
+const resultModelsDialog = $("resultModelsDialog");
+for (const [id, status] of [
+  ["successModelsButton", "success"],
+  ["failedModelsButton", "failed"],
+]) {
+  $(id).addEventListener("click", () => {
+    resultDialogStatus = status;
+    renderResultModelsDialog();
+    $("resultModelsList").scrollTop = 0;
+    resultModelsDialog.showModal();
+    document.body.classList.add("dialog-open");
+  });
+}
+$("closeResultModels").addEventListener("click", () =>
+  resultModelsDialog.close(),
+);
+resultModelsDialog.addEventListener("close", () => {
+  resultDialogStatus = null;
+  document.body.classList.remove("dialog-open");
+});
+resultModelsDialog.addEventListener("click", (event) => {
+  if (event.target !== resultModelsDialog) return;
+  const bounds = resultModelsDialog.getBoundingClientRect();
+  // 仅点击弹窗外的遮罩时关闭，弹窗内留白仍可正常点击。
+  if (
+    event.clientX < bounds.left ||
+    event.clientX > bounds.right ||
+    event.clientY < bounds.top ||
+    event.clientY > bounds.bottom
+  ) {
+    resultModelsDialog.close();
+  }
+});
+
 // 刷新结果时保留展开项，避免实时更新打断查看错误详情。
 function renderJob(job) {
   latestSnapshot = job;
@@ -409,6 +485,7 @@ function renderJob(job) {
     .join("");
   $("noResults").hidden = shown > 0;
   setRunning(job.status === "running");
+  if (resultModelsDialog.open) renderResultModelsDialog();
 }
 
 async function pollJob(jobId) {

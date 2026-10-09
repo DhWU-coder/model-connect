@@ -349,14 +349,30 @@
                 <span>检测进度</span
                 ><strong id="statProgress">0 <small>/ 0</small></strong>
               </div>
-              <div>
+              <button
+                id="successModelsButton"
+                type="button"
+                class="stat-action"
+                aria-label="查看调用成功的模型列表"
+                aria-haspopup="dialog"
+                aria-controls="resultModelsDialog"
+              >
                 <span><i class="dot success-dot"></i>调用成功</span
                 ><strong id="statSuccess">0</strong>
-              </div>
-              <div>
+                <span class="stat-hint" aria-hidden="true">查看模型 ↗</span>
+              </button>
+              <button
+                id="failedModelsButton"
+                type="button"
+                class="stat-action"
+                aria-label="查看调用失败的模型列表"
+                aria-haspopup="dialog"
+                aria-controls="resultModelsDialog"
+              >
                 <span><i class="dot failure-dot"></i>调用失败</span
                 ><strong id="statFailed">0</strong>
-              </div>
+                <span class="stat-hint" aria-hidden="true">查看模型 ↗</span>
+              </button>
               <div>
                 <span><i class="dot neutral-dot"></i>不适用 / 已取消</span
                 ><strong id="statOther">0</strong>
@@ -411,5 +427,28 @@
         <span>Model Connect</span><span>密钥不保存到磁盘 · 支持局域网访问</span>
       </footer>
     </main>
+    <!-- 原生弹窗管理键盘焦点，列表只使用已有检测结果。 -->
+    <dialog
+      id="resultModelsDialog"
+      class="model-dialog"
+      aria-labelledby="resultModelsTitle"
+      aria-describedby="resultModelsSummary"
+    >
+      <div class="model-dialog-heading">
+        <h2 id="resultModelsTitle">模型列表</h2>
+        <button
+          id="closeResultModels"
+          type="button"
+          class="dialog-close"
+          aria-label="关闭模型列表"
+          autofocus
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <p id="resultModelsSummary" class="muted small" aria-live="polite"></p>
+      <ul id="resultModelsList" class="dialog-model-list"></ul>
+      <p class="help">按调用协议分别记录，检测过程中自动更新。</p>
+    </dialog>
   </body>
 </html>
