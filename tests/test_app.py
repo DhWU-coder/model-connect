@@ -70,6 +70,50 @@ async def test_list_probe_both_and_exports():
         await app.state.jobs.shutdown()
 
 
+@pytest.mark.parametrize(
+    ("protocol", "paths", "counts"),
+    [
+        (None, ["/v1/chat/completions"], {"success": 1}),
+        ("default", ["/v1/chat/completions"], {"success": 1}),
+        ("responses", ["/v1/responses"], {"failed": 1}),
+        ("both", ["/v1/chat/completions", "/v1/responses"], {"success": 1, "failed": 1}),
+    ],
+)
+async def test_openai_default_chat_with_unimplemented_responses(protocol, paths, counts):
+    """网关未实现 Responses 时，默认请求仍能完成 Chat 检测。"""
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        if request.url.path == "/v1/responses":
+            return httpx.Response(500, json={"error": {"message": "not implemented"}})
+        assert request.url.path == "/v1/chat/completions"
+        return httpx.Response(200, json={"choices": [{"message": {"content": "hi"}}]})
+
+    app = create_app(httpx.MockTransport(handler))
+    body = {
+        "connection": {"provider": "openai", "base_url": "http://provider.test/v1"},
+        "models": ["demo"],
+    }
+    if protocol is not None:
+        body["protocol"] = protocol
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app), base_url="http://localhost"
+    ) as client:
+        response = await client.post("/api/jobs", json=body)
+        assert response.status_code == 201
+        job = await wait_job(client, response.json()["id"])
+        assert sorted(calls) == sorted(paths)
+        assert job["counts"] == counts
+        assert job["completed"] == len(paths)
+        # 显式检测 Responses 时不能用 Chat 的成功掩盖接口失败。
+        for result in job["results"]:
+            if result["protocol"] == "responses":
+                assert result["http_status"] == 500
+                assert result["error"] == "not implemented"
+        await app.state.jobs.shutdown()
+
+
 async def test_cancel_limits_inflight_calls():
     started = asyncio.Event()
     calls = 0

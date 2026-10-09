@@ -196,7 +196,8 @@ class ProbeRequest(BaseModel):
             return ["chat", "responses"]
         if self.protocol in {"chat", "responses"}:
             return [self.protocol]
-        return ["responses" if self.connection.provider == "openai" else "chat"]
+        # OpenAI 与兼容网关统一默认检测 Chat Completions。
+        return ["chat"]
 
 
 class Result(BaseModel):

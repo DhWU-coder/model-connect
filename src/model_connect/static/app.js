@@ -212,8 +212,7 @@ $("providerChoices").addEventListener("click", (event) => {
   $("probePath").value = "";
   $("protocol").value = "default";
   $("protocolRow").hidden = ["anthropic", "google"].includes(provider);
-  $("protocol").options[0].text =
-    `默认 · ${provider === "openai" ? "Responses" : "Chat Completions"}`;
+  $("protocol").options[0].text = "默认 · Chat Completions";
   models = [];
   visibleModels = [];
   selected.clear();

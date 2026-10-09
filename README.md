@@ -67,7 +67,7 @@ API 根地址没有路径时自动补 `/v1`，Google 补 `/v1beta`；已有路�
 
 | Provider | 默认根地址 | 获取候选模型 | 检测协议 |
 | --- | --- | --- | --- |
-| OpenAI | `https://api.openai.com/v1` | `GET models` | 默认 Responses，也可选 Chat Completions 或分别检测两者 |
+| OpenAI | `https://api.openai.com/v1` | `GET models` | 默认 Chat Completions，也可选 Responses 或分别检测两者 |
 | OpenAI 兼容 / 中转 | 自定义 | `GET models` | 默认 Chat Completions，也可选 Responses |
 | Anthropic | `https://api.anthropic.com/v1` | `GET models`，自动 after_id 分页 | `POST messages` |
 | Google Gemini | `https://generativelanguage.googleapis.com/v1beta` | `GET models`，自动 pageToken 分页 | `POST models/{model}:generateContent` |
