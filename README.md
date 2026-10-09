@@ -2,7 +2,7 @@
 
 通过真实文本生成请求检查 API 的模型连通性，提供中文网页和 CLI。先取得候选模型列表，再向每个模型发送「只回复hi」；收到有效文本才计为成功。
 
-支持 OpenAI、Anthropic、Google Gemini 原生协议和 OpenAI 兼容 / 中转服务。Provider 表示接口协议：用 OpenAI 协议提供 Claude 的中转服务应选择「OpenAI 兼容」。
+支持 OpenAI、Anthropic、Google Gemini 三种接口格式。API 地址均由用户填写，不预填官方地址；官方服务、中转站和本地服务按其提供的格式选择。用 OpenAI 格式提供 Claude 的服务应选择「OpenAI」。
 
 ## 安装
 
@@ -65,14 +65,13 @@ API 根地址没有路径时自动补 `/v1`，Google 补 `/v1beta`；已有路�
 {"anthropic-workspace-id": "wrkspc_你的工作区"}
 ```
 
-## Provider 与模型列表
+## 接口格式与模型列表
 
-| Provider | 默认根地址 | 获取候选模型 | 检测协议 |
+| 接口格式 | API 根地址 | 获取候选模型 | 检测协议 |
 | --- | --- | --- | --- |
-| OpenAI | `https://api.openai.com/v1` | `GET models` | 默认 Chat Completions，也可选 Responses 或分别检测两者 |
-| OpenAI 兼容 / 中转 | 自定义 | `GET models` | 默认 Chat Completions，也可选 Responses |
-| Anthropic | `https://api.anthropic.com/v1` | `GET models`，自动 after_id 分页 | `POST messages` |
-| Google Gemini | `https://generativelanguage.googleapis.com/v1beta` | `GET models`，自动 pageToken 分页 | `POST models/{model}:generateContent` |
+| OpenAI | 用户填写 | `GET models` | 默认 Chat Completions，也可选 Responses 或分别检测两者 |
+| Anthropic | 用户填写 | `GET models`，自动 after_id 分页 | `POST messages` |
+| Google Gemini | 用户填写 | `GET models`，自动 pageToken 分页 | `POST models/{model}:generateContent` |
 
 Google 使用 Gemini Developer API 的 API Key，不包含 Vertex AI 的 IAM 认证。Anthropic 默认带 `x-api-key` 和 `anthropic-version: 2023-06-01`；需要 Bearer 时可在附加请求头配置 `Authorization`。本地无需鉴权的兼容服务可留空 API Key。
 
@@ -106,7 +105,7 @@ Google 使用 Gemini Developer API 的 API Key，不包含 Vertex AI 的 IAM 认
 
 ## 本地数据与访问
 
-Provider、URL 和 API Key 保存在当前标签页的 sessionStorage 中，刷新网页后自动恢复，Key 仍以密码形式显示；不做长期保存，普通新标签页不会读取另一标签页的连接信息。切换 provider 时重置地址并清空 Key，手动清空输入也会覆盖会话中的旧值。高级连接设置刷新后仍清空，localStorage 仅保存主题偏好。
+接口格式、URL 和 API Key 保存在当前标签页的 sessionStorage 中，刷新网页后自动恢复，Key 仍以密码形式显示；不做长期保存，普通新标签页不会读取另一标签页的连接信息。切换格式保留 URL 和 Key，手动清空输入会覆盖会话中的旧值。高级连接设置在格式切换或刷新后清空，localStorage 仅保存主题偏好。旧版本的 OpenAI 兼容入口会话和请求标识仍可使用，统一归为 OpenAI 格式。
 
 密钥不写入服务配置、日志或导出。运行任务只在服务内存中持有凭据；历史结果也会对凭据回显脱敏。检测任务 ID 同样在标签页会话中保存，用于刷新后恢复结果。浏览器禁止存储时当前页仍可输入和检测，但无法在刷新后恢复。CSV 对可能被当作公式的单元格转义。
 

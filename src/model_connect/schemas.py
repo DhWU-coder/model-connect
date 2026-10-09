@@ -7,17 +7,13 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
-Provider = Literal["openai", "openai_compatible", "anthropic", "google"]
+Provider = Literal["openai", "anthropic", "google"]
 Protocol = Literal["chat", "responses", "messages", "generateContent"]
 
 PROVIDERS = {
-    "openai": {"label": "OpenAI", "base_url": "https://api.openai.com/v1"},
-    "openai_compatible": {"label": "OpenAI 兼容 / 中转", "base_url": ""},
-    "anthropic": {"label": "Anthropic", "base_url": "https://api.anthropic.com/v1"},
-    "google": {
-        "label": "Google Gemini",
-        "base_url": "https://generativelanguage.googleapis.com/v1beta",
-    },
+    "openai": {"label": "OpenAI", "base_url": ""},
+    "anthropic": {"label": "Anthropic", "base_url": ""},
+    "google": {"label": "Google Gemini", "base_url": ""},
 }
 
 
@@ -25,13 +21,19 @@ class Connection(BaseModel):
     """连接信息仅用于当前请求或任务，不持久化密钥。"""
 
     model_config = ConfigDict(extra="forbid")
-    provider: Provider = "openai_compatible"
+    provider: Provider = "openai"
     base_url: str = Field(default="", max_length=2048)
     api_key: SecretStr = Field(default_factory=lambda: SecretStr(""))
     list_path: str = Field(default="models", max_length=512)
     probe_path: str = Field(default="", max_length=512)
     headers: dict[str, str] = Field(default_factory=dict)
     anthropic_version: str = "2023-06-01"
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def normalize_provider(cls, value: object) -> object:
+        """兼容旧入口标识，所有 OpenAI 请求使用同一接口格式。"""
+        return "openai" if value == "openai_compatible" else value
 
     @field_validator("list_path", "probe_path")
     @classmethod
@@ -71,7 +73,7 @@ class Connection(BaseModel):
 
     @model_validator(mode="after")
     def normalize(self) -> "Connection":
-        raw = self.base_url.strip() or PROVIDERS[self.provider]["base_url"]
+        raw = self.base_url.strip()
         parts = urlsplit(raw)
         if parts.scheme not in {"http", "https"} or not parts.hostname:
             raise ValueError("请填写有效的 http:// 或 https:// API 根地址")

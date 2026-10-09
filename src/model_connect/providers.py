@@ -188,13 +188,11 @@ class Adapter:
             }
         elif protocol == "chat":
             path = "chat/completions"
-            token_key = (
-                "max_completion_tokens" if self.connection.provider == "openai" else "max_tokens"
-            )
+            # 官方与兼容服务共用参数策略，仅在明确拒绝时回退。
             body = {
                 "model": model,
                 "messages": [{"role": "user", "content": request.prompt}],
-                token_key: request.max_tokens,
+                "max_tokens": request.max_tokens,
             }
         elif protocol == "messages":
             path = "messages"

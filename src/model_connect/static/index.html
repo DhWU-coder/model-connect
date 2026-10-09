@@ -62,7 +62,7 @@
           <section class="panel">
             <div class="panel-heading">
               <h2><span class="step">01</span> 连接 API</h2>
-              <span class="muted small">按接口协议选择</span>
+              <span class="muted small">按接口格式选择</span>
             </div>
             <fieldset id="connectionFields">
               <div class="provider-grid" id="providerChoices">
@@ -90,14 +90,6 @@
                 >
                   <span class="provider-symbol google">G</span>Google Gemini
                 </button>
-                <button
-                  type="button"
-                  class="provider"
-                  data-provider="openai_compatible"
-                  aria-pressed="false"
-                >
-                  <span class="provider-symbol">⇄</span>OpenAI 兼容
-                </button>
               </div>
               <label for="baseUrl"
                 >API 根地址 <span class="label-hint">Base URL</span></label
@@ -105,7 +97,6 @@
               <input
                 id="baseUrl"
                 type="url"
-                value="https://api.openai.com/v1"
                 placeholder="https://api.example.com/v1"
                 spellcheck="false"
                 autocomplete="off"
@@ -300,7 +291,7 @@
                   <h3>先找到要检测的模型</h3>
                   <p>连接 API 获取列表，或手动添加模型名称。</p>
                   <span class="empty-providers"
-                    >OpenAI · Anthropic · Gemini · Compatible</span
+                    >OpenAI · Anthropic · Google Gemini</span
                   >
                 </div>
               </div>

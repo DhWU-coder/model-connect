@@ -3,17 +3,12 @@
 // 连接信息和任务 ID 仅保留在标签页会话中，主题偏好单独长期保存。
 const $ = (id) => document.getElementById(id);
 const connectionStorageKey = "model-connect-connection";
-const defaults = {
-  openai: "https://api.openai.com/v1",
-  anthropic: "https://api.anthropic.com/v1",
-  google: "https://generativelanguage.googleapis.com/v1beta",
-  openai_compatible: "",
-};
 const providerLabels = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google Gemini",
-  openai_compatible: "OpenAI 兼容",
+  // 旧任务结果仍显示为同一种 OpenAI 格式。
+  openai_compatible: "OpenAI",
 };
 const statusLabels = {
   pending: "等待检测",
@@ -100,17 +95,19 @@ function restoreConnectionSession() {
     if (
       !data ||
       typeof data.provider !== "string" ||
-      !Object.hasOwn(defaults, data.provider) ||
+      !Object.hasOwn(providerLabels, data.provider) ||
       typeof data.baseUrl !== "string" ||
       typeof data.apiKey !== "string"
     ) {
       writeSessionValue(connectionStorageKey, null);
       return;
     }
-    provider = data.provider;
+    // 迁移旧入口的会话，保留用户填写的地址与密钥。
+    provider = data.provider === "openai_compatible" ? "openai" : data.provider;
     $("baseUrl").value = data.baseUrl;
     $("apiKey").value = data.apiKey;
     updateProviderControls();
+    saveConnectionSession();
   } catch {
     writeSessionValue(connectionStorageKey, null);
   }
@@ -169,6 +166,7 @@ async function api(path, body) {
 }
 
 function connection() {
+  if (!$("baseUrl").value.trim()) throw new Error("请填写 API 根地址");
   let headers = {};
   if ($("extraHeaders").value.trim()) {
     try {
@@ -227,7 +225,7 @@ function renderModels() {
   $("catalogCount").textContent = models.length;
   if (!visibleModels.length) {
     $("modelList").innerHTML =
-      `<div class="empty catalog-empty"><span class="empty-icon">≋</span><h3>${models.length ? "没有匹配的模型" : "先找到要检测的模型"}</h3><p>${models.length ? "调整筛选规则，再试一次。" : "连接 API 获取列表，或手动添加模型名称。"}</p><span class="empty-providers">OpenAI · Anthropic · Gemini · Compatible</span></div>`;
+      `<div class="empty catalog-empty"><span class="empty-icon">≋</span><h3>${models.length ? "没有匹配的模型" : "先找到要检测的模型"}</h3><p>${models.length ? "调整筛选规则，再试一次。" : "连接 API 获取列表，或手动添加模型名称。"}</p><span class="empty-providers">OpenAI · Anthropic · Google Gemini</span></div>`;
   } else {
     $("modelList").innerHTML = visibleModels
       .map(
@@ -274,8 +272,7 @@ $("providerChoices").addEventListener("click", (event) => {
     return;
   provider = button.dataset.provider;
   updateProviderControls();
-  $("baseUrl").value = defaults[provider];
-  $("apiKey").value = "";
+  // 仅切换接口格式，保留同一 API 地址与密钥以便检测不同协议。
   $("extraHeaders").value = "";
   $("listPath").value = "models";
   $("probePath").value = "";

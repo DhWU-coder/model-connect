@@ -351,6 +351,10 @@ label:not(
   gap: 8px;
   margin-bottom: 19px;
 }
+/* 第三个格式占满一行，保持手机上的按钮文字完整。 */
+.provider-grid .provider:last-child {
+  grid-column: 1 / -1;
+}
 .provider {
   display: flex;
   align-items: center;

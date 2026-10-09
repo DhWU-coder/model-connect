@@ -56,6 +56,7 @@ async def test_list_probe_both_and_exports():
         assert response.status_code == 201
         job_id = response.json()["id"]
         job = await wait_job(client, job_id)
+        assert job["provider"] == "openai"
         assert job["counts"] == {"success": 1, "failed": 1, "skipped": 2}
         assert job["completed"] == 4
         assert len(calls) == 3
@@ -156,7 +157,7 @@ async def test_metadata_skip_force_and_immediate_cancel():
     )
     manager = JobManager(transport)
     request = ProbeRequest(
-        connection=Connection(provider="google"),
+        connection=Connection(provider="google", base_url="http://provider.test/v1beta"),
         models=["unknown"],
         model_details=[ModelInfo(id="unknown", supported=False)],
     )
@@ -272,3 +273,36 @@ async def test_gateway_paths_and_header_override():
         )
         assert response.status_code == 200
         assert json.loads(response.content)["models"][0]["id"] == "claude-proxy"
+
+
+@pytest.mark.parametrize("provider", ["openai", "openai_compatible", "anthropic", "google"])
+async def test_format_requires_url_without_upstream_calls(provider):
+    """空地址必须拒绝，任何格式及旧标识都不能回退到官方服务。"""
+    calls = []
+    app = create_app(httpx.MockTransport(lambda request: calls.append(request)))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app), base_url="http://localhost"
+    ) as client:
+        for url in (None, "", "   "):
+            connection = {"provider": provider, "api_key": "secret-key"}
+            if url is not None:
+                connection["base_url"] = url
+            for endpoint in ("/api/models", "/api/jobs"):
+                body = {"connection": connection}
+                if endpoint == "/api/jobs":
+                    body["models"] = ["demo"]
+                response = await client.post(endpoint, json=body)
+                assert response.status_code == 422
+                assert "secret-key" not in response.text
+    assert not calls
+
+
+async def test_only_three_formats_with_empty_default_urls():
+    """格式目录只返回三个入口，URL 全部由用户提供。"""
+    app = create_app()
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app), base_url="http://localhost"
+    ) as client:
+        formats = (await client.get("/api/providers")).json()
+    assert set(formats) == {"openai", "anthropic", "google"}
+    assert all(item["base_url"] == "" for item in formats.values())

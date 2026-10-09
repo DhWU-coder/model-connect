@@ -28,7 +28,7 @@ from model_connect.schemas import Connection, ModelFilter, ProbeRequest
             "openai",
             "chat",
             "/v1/chat/completions",
-            {"max_completion_tokens": 64},
+            {"max_tokens": 64},
             {"choices": [{"message": {"content": "hi"}, "finish_reason": "stop"}]},
         ),
         (
@@ -123,7 +123,7 @@ async def test_pagination(provider):
             },
         )
 
-    config = Connection(provider=provider)
+    config = Connection(provider=provider, base_url="http://provider.test")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         models = await Adapter(config, client).list_models()
     assert [model.id for model in models] == ["first", "second"]
@@ -133,7 +133,7 @@ async def test_pagination(provider):
 
 
 async def test_repeated_cursor_rejected():
-    config = Connection(provider="google")
+    config = Connection(provider="google", base_url="http://provider.test")
     transport = httpx.MockTransport(
         lambda request: httpx.Response(200, json={"models": [], "nextPageToken": "same"})
     )
@@ -155,7 +155,7 @@ async def test_repeated_cursor_rejected():
     ],
 )
 async def test_failure_classification(status, error, expected):
-    config = Connection(provider="openai", api_key="secret-key")
+    config = Connection(provider="openai", base_url="http://provider.test/v1", api_key="secret-key")
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: httpx.Response(status, json={"error": error}))
     ) as client:
@@ -204,7 +204,7 @@ async def test_failure_classification(status, error, expected):
     ],
 )
 async def test_http_200_is_not_sufficient(protocol, response, expected):
-    config = Connection(provider="openai")
+    config = Connection(provider="openai", base_url="http://provider.test/v1")
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: httpx.Response(200, json=response))
     ) as client:
@@ -215,7 +215,8 @@ async def test_http_200_is_not_sufficient(protocol, response, expected):
     assert result.status == "failed"
 
 
-async def test_token_fallback_and_secret_redaction():
+@pytest.mark.parametrize("provider", ["openai", "openai_compatible"])
+async def test_token_fallback_and_secret_redaction(provider):
     calls = []
 
     def handler(request):
@@ -232,7 +233,7 @@ async def test_token_fallback_and_secret_redaction():
         )
 
     config = Connection(
-        provider="openai_compatible",
+        provider=provider,
         base_url="http://test",
         api_key="secret-key",
         headers={"X-Custom": "header-secret"},
@@ -261,7 +262,7 @@ async def test_total_timeout_and_transient_retry(monkeypatch):
         await real_sleep(0)
 
     monkeypatch.setattr("model_connect.providers.asyncio.sleep", fast_sleep)
-    config = Connection(provider="openai")
+    config = Connection(provider="openai", base_url="http://provider.test/v1")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         result = await Adapter(config, client).probe(
             "demo", "chat", ProbeRequest(connection=config, models=["demo"], retries=1)
@@ -289,7 +290,9 @@ def test_filters(mode, pattern, name, expected):
 
 
 def test_url_and_special_models():
-    assert Connection(provider="google").base_url.endswith("/v1beta")
+    assert Connection(provider="google", base_url="http://provider.test").base_url.endswith(
+        "/v1beta"
+    )
     assert (
         Connection(provider="openai", base_url="https://proxy.test/gateway/v1/").base_url
         == "https://proxy.test/gateway/v1"
@@ -340,7 +343,7 @@ async def test_google_override_usage_redaction_and_http_redirect():
 @pytest.mark.parametrize("key", ["带中文的密钥", "key\nheader", "key secret"])
 def test_invalid_key_rejected(key):
     with pytest.raises(ValueError):
-        Connection(provider="openai", api_key=key)
+        Connection(provider="openai", base_url="http://provider.test/v1", api_key=key)
 
 
 async def test_total_timeout_is_enforced():
@@ -348,7 +351,7 @@ async def test_total_timeout_is_enforced():
         await asyncio.sleep(3)
         return httpx.Response(200, json={"choices": [{"message": {"content": "hi"}}]})
 
-    config = Connection(provider="openai")
+    config = Connection(provider="openai", base_url="http://provider.test/v1")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         result = await Adapter(config, client).probe(
             "demo", "chat", ProbeRequest(connection=config, models=["demo"], timeout=1)

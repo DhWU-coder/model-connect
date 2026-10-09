@@ -89,7 +89,8 @@ def test_foreground_and_port_conflict(tmp_path):
     with socket.socket() as occupied:
         occupied.bind(("127.0.0.1", port))
         occupied.listen()
-        result = command(env, "start", "--port", str(port))
+        # 与占用进程使用同一地址，避免系统对通配监听的不同处理。
+        result = command(env, "start", "--host", "127.0.0.1", "--port", str(port))
         assert result.returncode == 1
         assert "占用" in result.stderr
     assert command(env, "run", "--port", "0").returncode == 1
