@@ -1,6 +1,6 @@
 "use strict";
 
-// 密钥只保留在当前页面控件和请求中，存储中仅记录任务 ID。
+// 密钥只保留在当前页面控件和请求中，浏览器仅保存任务 ID 和主题偏好。
 const $ = (id) => document.getElementById(id);
 const defaults = {
   openai: "https://api.openai.com/v1",

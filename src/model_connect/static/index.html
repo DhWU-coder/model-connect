@@ -3,9 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <title>Model Connect · 模型连通性检测</title>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <script src="/static/theme.js"></script>
     <link rel="stylesheet" href="/static/style.css" />
     <script src="/static/app.js" defer></script>
   </head>
@@ -17,6 +18,15 @@
         ><span>model<span class="brand-light">connect</span></span></a
       >
       <div class="topbar-right">
+        <!-- 主题偏好独立于 API 配置，刷新后继续沿用。 -->
+        <label class="theme-control" for="themeSelect">
+          <span>主题</span>
+          <select id="themeSelect" aria-label="界面主题">
+            <option value="system">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+          </select>
+        </label>
         <span class="local-badge"
           ><span id="healthDot" class="dot"></span
           ><span id="healthLabel">连接本地服务…</span></span
@@ -398,8 +408,7 @@
         </div>
       </div>
       <footer>
-        <span>Model Connect</span
-        ><span>密钥不保存到磁盘 · 默认只在本机运行</span>
+        <span>Model Connect</span><span>密钥不保存到磁盘 · 支持局域网访问</span>
       </footer>
     </main>
   </body>
