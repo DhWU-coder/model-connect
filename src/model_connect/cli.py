@@ -18,6 +18,9 @@ import uvicorn
 from model_connect import __version__
 from model_connect.app import create_app
 
+# 统一维护默认端口，保证帮助文本与启动行为一致。
+DEFAULT_PORT = 8886
+
 
 def state_dir() -> Path:
     override = os.environ.get("MODEL_CONNECT_STATE_DIR")
@@ -258,7 +261,7 @@ def parser() -> argparse.ArgumentParser:
     ):
         child = commands.add_parser(name, help=description)
         child.add_argument("--host", default=None, help="监听地址，默认 127.0.0.1")
-        child.add_argument("--port", type=int, default=None, help="监听端口，默认 8765")
+        child.add_argument("--port", type=int, default=None, help=f"监听端口，默认 {DEFAULT_PORT}")
     commands.add_parser("stop", help="停止服务")
     commands.add_parser("end", help="停止服务，与 stop 相同")
     commands.add_parser("status", help="查看运行状态")
@@ -280,12 +283,12 @@ def main() -> None:
         args = parser().parse_args()
     try:
         if args.command == "_serve":
-            serve(args.host or "127.0.0.1", args.port or 8765, args.instance)
+            serve(args.host or "127.0.0.1", args.port or DEFAULT_PORT, args.instance)
             return
         if args.command == "run":
             if args.port is not None and not 1 <= args.port <= 65535:
                 raise RuntimeError("端口必须介于 1 和 65535 之间")
-            serve(args.host or "127.0.0.1", args.port or 8765)
+            serve(args.host or "127.0.0.1", args.port or DEFAULT_PORT)
             return
         if args.command == "status":
             data = read_state()
@@ -319,7 +322,11 @@ def main() -> None:
                 return
             previous = read_state() if args.command == "restart" else None
             host = args.host or (previous["host"] if previous else "127.0.0.1")
-            port = args.port if args.port is not None else (previous["port"] if previous else 8765)
+            port = (
+                args.port
+                if args.port is not None
+                else (previous["port"] if previous else DEFAULT_PORT)
+            )
             if not 1 <= port <= 65535:
                 raise RuntimeError("端口必须介于 1 和 65535 之间")
             if args.command == "restart":
