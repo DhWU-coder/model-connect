@@ -166,7 +166,7 @@ class ProbeRequest(BaseModel):
     models: list[str] = Field(min_length=1, max_length=1000)
     model_details: list[ModelInfo] = Field(default_factory=list, max_length=1000)
     protocol: Literal["default", "chat", "responses", "both"] = "default"
-    prompt: str = Field(default="请只回复 hi", min_length=1, max_length=4000)
+    prompt: str = Field(default="只回复hi", min_length=1, max_length=4000)
     concurrency: int = Field(default=3, ge=1, le=20)
     timeout: float = Field(default=30, ge=1, le=300)
     max_tokens: int = Field(default=256, ge=16, le=8192)

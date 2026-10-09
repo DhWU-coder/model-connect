@@ -17,7 +17,7 @@ from model_connect.schemas import Connection, ModelFilter, ProbeRequest
             "openai",
             "responses",
             "/v1/responses",
-            {"input": "请只回复 hi", "max_output_tokens": 256, "store": False},
+            {"input": "只回复hi", "max_output_tokens": 256, "store": False},
             {
                 "output": [{"type": "message", "content": [{"type": "output_text", "text": "hi"}]}],
                 "status": "completed",
@@ -71,7 +71,7 @@ async def test_native_probe(provider, protocol, path, body, response):
             assert payload[key] == value
         if provider == "google":
             assert request.headers["x-goog-api-key"] == "secret-key"
-            assert payload["contents"][0]["parts"][0]["text"] == "请只回复 hi"
+            assert payload["contents"][0]["parts"][0]["text"] == "只回复hi"
         elif provider == "anthropic":
             assert request.headers["x-api-key"] == "secret-key"
             assert request.headers["anthropic-version"] == "2023-06-01"

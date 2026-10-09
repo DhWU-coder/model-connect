@@ -1,6 +1,6 @@
 # Model Connect
 
-通过真实文本生成请求检查 API 的模型连通性，提供中文网页和 CLI。先取得候选模型列表，再向每个模型发送「请只回复 hi」；收到有效文本才计为成功。
+通过真实文本生成请求检查 API 的模型连通性，提供中文网页和 CLI。先取得候选模型列表，再向每个模型发送「只回复hi」；收到有效文本才计为成功。
 
 支持 OpenAI、Anthropic、Google Gemini 原生协议和 OpenAI 兼容 / 中转服务。Provider 表示接口协议：用 OpenAI 协议提供 Claude 的中转服务应选择「OpenAI 兼容」。
 
