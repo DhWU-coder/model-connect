@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Model Connect · 模型连通性检测</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <!-- 顶部状态在服务健康检查完成后更新。 -->
+    <header class="topbar">
+      <a class="brand" href="/"
+        ><span class="brand-mark">m<span>↗</span></span
+        ><span>model<span class="brand-light">connect</span></span></a
+      >
+      <div class="topbar-right">
+        <span class="local-badge"
+          ><span id="healthDot" class="dot"></span
+          ><span id="healthLabel">连接本地服务…</span></span
+        ><span class="version" id="version">v0.1.0</span>
+      </div>
+    </header>
+    <main>
+      <section class="intro">
+        <div>
+          <p class="eyebrow">MODEL CONNECTIVITY LAB</p>
+          <h1>模型列出来，<br class="mobile-break" />也要跑得通。</h1>
+          <p class="intro-text">
+            向每个模型发送一次真实请求，让可用性有据可查。
+          </p>
+        </div>
+        <div class="intro-note">
+          <span class="note-icon">↗</span>
+          <div>
+            <strong>一次短回复，一次真实验证</strong>
+            <p>原生支持 OpenAI、Anthropic 和 Google Gemini</p>
+          </div>
+        </div>
+      </section>
+      <div
+        id="notice"
+        class="notice"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
+      <div class="workspace">
+        <aside class="config-column">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2><span class="step">01</span> 连接 API</h2>
+              <span class="muted small">按接口协议选择</span>
+            </div>
+            <fieldset id="connectionFields">
+              <div class="provider-grid" id="providerChoices">
+                <button
+                  type="button"
+                  class="provider active"
+                  data-provider="openai"
+                  aria-pressed="true"
+                >
+                  <span class="provider-symbol">◎</span>OpenAI
+                </button>
+                <button
+                  type="button"
+                  class="provider"
+                  data-provider="anthropic"
+                  aria-pressed="false"
+                >
+                  <span class="provider-symbol">A</span>Anthropic
+                </button>
+                <button
+                  type="button"
+                  class="provider"
+                  data-provider="google"
+                  aria-pressed="false"
+                >
+                  <span class="provider-symbol google">G</span>Google Gemini
+                </button>
+                <button
+                  type="button"
+                  class="provider"
+                  data-provider="openai_compatible"
+                  aria-pressed="false"
+                >
+                  <span class="provider-symbol">⇄</span>OpenAI 兼容
+                </button>
+              </div>
+              <label for="baseUrl"
+                >API 根地址 <span class="label-hint">Base URL</span></label
+              >
+              <input
+                id="baseUrl"
+                type="url"
+                value="https://api.openai.com/v1"
+                placeholder="https://api.example.com/v1"
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <label for="apiKey"
+                >API Key <span class="label-hint">仅用于当前会话</span></label
+              >
+              <div class="password-wrap">
+                <input
+                  id="apiKey"
+                  type="password"
+                  placeholder="输入密钥，本地兼容服务可留空"
+                  autocomplete="off"
+                  spellcheck="false"
+                /><button
+                  id="toggleKey"
+                  type="button"
+                  class="password-toggle"
+                  aria-label="显示 API Key"
+                >
+                  显示
+                </button>
+              </div>
+              <details class="advanced">
+                <summary>高级连接设置</summary>
+                <div class="details-body">
+                  <label for="listPath">模型列表路径</label
+                  ><input
+                    id="listPath"
+                    value="models"
+                    placeholder="相对 API 根目录的路径"
+                  />
+                  <label for="probePath">调用路径覆盖</label
+                  ><input
+                    id="probePath"
+                    placeholder="留空按协议选择，Google 可用 {model}"
+                  />
+                  <label for="extraHeaders"
+                    >附加请求头 <span class="label-hint">JSON 对象</span></label
+                  ><textarea
+                    id="extraHeaders"
+                    rows="3"
+                    placeholder='例如 {"anthropic-workspace-id":"wrkspc_…"}'
+                    spellcheck="false"
+                  ></textarea>
+                  <p class="help">
+                    地址已有网关前缀时会原样保留。附加请求头可覆盖默认鉴权，刷新页面后清空。
+                  </p>
+                </div>
+              </details>
+              <button
+                id="fetchModels"
+                type="button"
+                class="button secondary full"
+              >
+                <span>↓</span> 获取模型列表
+              </button>
+              <p class="help">列表仅是候选目录，能否调用以检测结果为准。</p>
+            </fieldset>
+          </section>
+          <section class="panel">
+            <div class="panel-heading">
+              <h2><span class="step">02</span> 检测设置</h2>
+            </div>
+            <fieldset id="probeFields">
+              <div id="protocolRow">
+                <label for="protocol">调用方式</label
+                ><select id="protocol">
+                  <option value="default">默认 · Responses</option>
+                  <option value="chat">Chat Completions</option>
+                  <option value="responses">Responses</option>
+                  <option value="both">两种方式分别检测</option>
+                </select>
+              </div>
+              <label for="prompt">测试提示词</label
+              ><textarea id="prompt" rows="2">请只回复 hi</textarea>
+              <div class="form-grid">
+                <div>
+                  <label for="concurrency">并发数</label
+                  ><input
+                    id="concurrency"
+                    type="number"
+                    min="1"
+                    max="20"
+                    value="3"
+                  />
+                </div>
+                <div>
+                  <label for="timeout">超时 / 秒</label
+                  ><input
+                    id="timeout"
+                    type="number"
+                    min="1"
+                    max="300"
+                    value="30"
+                  />
+                </div>
+                <div>
+                  <label for="maxTokens">输出 Token 上限</label
+                  ><input
+                    id="maxTokens"
+                    type="number"
+                    min="16"
+                    max="8192"
+                    value="256"
+                  />
+                </div>
+                <div>
+                  <label for="retries">额外重试次数</label
+                  ><input
+                    id="retries"
+                    type="number"
+                    min="0"
+                    max="3"
+                    value="0"
+                  />
+                </div>
+              </div>
+              <label class="check-label"
+                ><input
+                  id="force"
+                  type="checkbox"
+                />允许检测标记为不适用的模型</label
+              >
+              <p class="help">
+                真实调用可能消耗额度。思考模型空回复时可提高 Token
+                上限；重试仅针对临时错误。
+              </p>
+            </fieldset>
+            <button
+              id="startProbe"
+              type="button"
+              class="button primary full"
+              disabled
+            >
+              开始检测 <span>↗</span>
+            </button>
+            <button
+              id="cancelProbe"
+              type="button"
+              class="button danger full"
+              hidden
+            >
+              取消当前检测
+            </button>
+          </section>
+          <div class="cli-note">
+            <span class="terminal-icon">&gt;_</span>
+            <div>
+              <strong>也可以从终端启动</strong><code>model-connect start</code>
+              <p>前台 run · 重启 restart · 停止 stop / end</p>
+            </div>
+          </div>
+        </aside>
+        <div class="content-column">
+          <section class="panel catalog-panel">
+            <div class="panel-heading">
+              <h2>候选模型 <span id="catalogCount" class="count">0</span></h2>
+              <span id="selectionCount" class="muted small">尚未选择模型</span>
+            </div>
+            <fieldset id="catalogFields">
+              <div class="filter-row">
+                <select id="filterMode" aria-label="模型名称匹配方式">
+                  <option value="contains">名称包含</option>
+                  <option value="prefix">名称开头</option>
+                  <option value="suffix">名称结尾</option>
+                  <option value="glob">通配符</option>
+                  <option value="exact">精确匹配</option></select
+                ><textarea
+                  id="filterPattern"
+                  rows="1"
+                  aria-label="模型名称筛选规则"
+                  placeholder="输入名称筛选，多个规则可换行"
+                ></textarea
+                ><label class="case-switch"
+                  ><input id="caseSensitive" type="checkbox" />区分大小写</label
+                >
+              </div>
+              <div class="catalog-toolbar">
+                <label class="check-label"
+                  ><input id="selectAll" type="checkbox" />全选匹配项</label
+                ><span id="filterHint" class="muted small"
+                  >支持包含、开头、结尾和通配符匹配</span
+                >
+              </div>
+              <div id="modelList" class="model-list">
+                <div class="empty catalog-empty">
+                  <span class="empty-icon">≋</span>
+                  <h3>先找到要检测的模型</h3>
+                  <p>连接 API 获取列表，或手动添加模型名称。</p>
+                  <span class="empty-providers"
+                    >OpenAI · Anthropic · Gemini · Compatible</span
+                  >
+                </div>
+              </div>
+              <details class="manual">
+                <summary>手动添加 / 导入模型列表</summary>
+                <div class="details-body">
+                  <textarea
+                    id="manualModels"
+                    rows="3"
+                    placeholder="每行一个模型名称；也支持逗号分隔。不需要先获取列表。"
+                  ></textarea>
+                  <div class="manual-actions">
+                    <button
+                      id="addModels"
+                      type="button"
+                      class="button secondary compact"
+                    >
+                      添加模型</button
+                    ><label class="file-button" for="importModels"
+                      >导入 TXT / JSON<input
+                        id="importModels"
+                        type="file"
+                        accept=".txt,.json,.csv"
+                        hidden
+                    /></label>
+                  </div>
+                  <p class="help">
+                    适用于中转服务未提供模型列表接口，或需要检测自定义别名。
+                  </p>
+                </div>
+              </details>
+            </fieldset>
+          </section>
+          <section class="panel results-panel">
+            <div class="panel-heading">
+              <h2>
+                检测结果 <span id="jobBadge" class="job-badge">等待开始</span>
+              </h2>
+              <div class="export-buttons">
+                <button id="exportJson" class="text-button" disabled>
+                  JSON ↓</button
+                ><button id="exportCsv" class="text-button" disabled>
+                  CSV ↓
+                </button>
+              </div>
+            </div>
+            <div class="stats">
+              <div>
+                <span>检测进度</span
+                ><strong id="statProgress">0 <small>/ 0</small></strong>
+              </div>
+              <div>
+                <span><i class="dot success-dot"></i>调用成功</span
+                ><strong id="statSuccess">0</strong>
+              </div>
+              <div>
+                <span><i class="dot failure-dot"></i>调用失败</span
+                ><strong id="statFailed">0</strong>
+              </div>
+              <div>
+                <span><i class="dot neutral-dot"></i>不适用 / 已取消</span
+                ><strong id="statOther">0</strong>
+              </div>
+            </div>
+            <progress
+              id="progress"
+              max="1"
+              value="0"
+              aria-label="检测完成进度"
+            ></progress>
+            <div class="results-toolbar">
+              <p id="jobMeta" class="muted small">
+                收到有效文本回复才计为成功；每种调用方式独立记录。
+              </p>
+              <select id="resultFilter" aria-label="筛选检测结果">
+                <option value="all">全部状态</option>
+                <option value="success">调用成功</option>
+                <option value="failed">调用失败</option>
+                <option value="skipped">不适用</option>
+                <option value="running">检测中</option>
+                <option value="cancelled">已取消</option>
+              </select>
+            </div>
+            <div id="resultsEmpty" class="empty results-empty">
+              <span class="empty-icon">↗</span>
+              <h3>让每个模型实际回答一次</h3>
+              <p>
+                选好模型后点击「开始检测」。<br />这里会显示回复、耗时和具体失败原因。
+              </p>
+            </div>
+            <div id="resultsTableWrap" class="table-wrap" hidden>
+              <table>
+                <thead>
+                  <tr>
+                    <th>模型 / 调用协议</th>
+                    <th>状态</th>
+                    <th>耗时</th>
+                    <th>回复或错误详情</th>
+                  </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+              </table>
+              <p id="noResults" class="empty small" hidden>
+                当前状态下没有结果
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+      <footer>
+        <span>Model Connect</span
+        ><span>密钥不保存到磁盘 · 默认只在本机运行</span>
+      </footer>
+    </main>
+  </body>
+</html>
