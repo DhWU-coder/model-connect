@@ -1,7 +1,8 @@
 "use strict";
 
-// 密钥只保留在当前页面控件和请求中，浏览器仅保存任务 ID 和主题偏好。
+// 连接信息和任务 ID 仅保留在标签页会话中，主题偏好单独长期保存。
 const $ = (id) => document.getElementById(id);
+const connectionStorageKey = "model-connect-connection";
 const defaults = {
   openai: "https://api.openai.com/v1",
   anthropic: "https://api.anthropic.com/v1",
@@ -50,6 +51,77 @@ let filterTimer = null;
 let pollTimer = null;
 let latestSnapshot = null;
 let resultDialogStatus = null;
+
+// 浏览器禁用存储时继续使用当前页，不把存储异常当成服务故障。
+function readSessionValue(key) {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionValue(key, value) {
+  try {
+    if (value === null) sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, value);
+  } catch {
+    // 无法保存时不影响表单输入、模型调用或结果显示。
+  }
+}
+
+function updateProviderControls() {
+  for (const item of document.querySelectorAll("[data-provider]")) {
+    const active = item.dataset.provider === provider;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-pressed", String(active));
+  }
+  $("protocolRow").hidden = ["anthropic", "google"].includes(provider);
+  $("protocol").options[0].text = "默认 · Chat Completions";
+}
+
+function saveConnectionSession() {
+  writeSessionValue(
+    connectionStorageKey,
+    JSON.stringify({
+      provider,
+      baseUrl: $("baseUrl").value,
+      apiKey: $("apiKey").value,
+    }),
+  );
+}
+
+function restoreConnectionSession() {
+  const saved = readSessionValue(connectionStorageKey);
+  if (saved === null) return;
+  try {
+    const data = JSON.parse(saved);
+    // 只恢复已知 provider 和字符串字段，损坏数据整体回退。
+    if (
+      !data ||
+      typeof data.provider !== "string" ||
+      !Object.hasOwn(defaults, data.provider) ||
+      typeof data.baseUrl !== "string" ||
+      typeof data.apiKey !== "string"
+    ) {
+      writeSessionValue(connectionStorageKey, null);
+      return;
+    }
+    provider = data.provider;
+    $("baseUrl").value = data.baseUrl;
+    $("apiKey").value = data.apiKey;
+    updateProviderControls();
+  } catch {
+    writeSessionValue(connectionStorageKey, null);
+  }
+}
+
+for (const id of ["baseUrl", "apiKey"]) {
+  $(id).addEventListener("input", saveConnectionSession);
+  $(id).addEventListener("change", saveConnectionSession);
+}
+// 页面离开前同步最后一次输入，兼容浏览器自动填充。
+window.addEventListener("pagehide", saveConnectionSession);
 
 function escapeHtml(value) {
   return String(value ?? "").replace(
@@ -201,19 +273,14 @@ $("providerChoices").addEventListener("click", (event) => {
   if (!button || running || fetching || provider === button.dataset.provider)
     return;
   provider = button.dataset.provider;
-  for (const item of document.querySelectorAll("[data-provider]")) {
-    const active = item.dataset.provider === provider;
-    item.classList.toggle("active", active);
-    item.setAttribute("aria-pressed", String(active));
-  }
+  updateProviderControls();
   $("baseUrl").value = defaults[provider];
   $("apiKey").value = "";
   $("extraHeaders").value = "";
   $("listPath").value = "models";
   $("probePath").value = "";
   $("protocol").value = "default";
-  $("protocolRow").hidden = ["anthropic", "google"].includes(provider);
-  $("protocol").options[0].text = "默认 · Chat Completions";
+  saveConnectionSession();
   models = [];
   visibleModels = [];
   selected.clear();
@@ -246,6 +313,7 @@ $("fetchModels").addEventListener("click", async () => {
     });
     models = data.models;
     $("baseUrl").value = data.base_url;
+    saveConnectionSession();
     await applyFilter();
     notice(
       `已获取 ${models.length} 个候选模型。列表已完成分页获取，接下来通过真实请求验证。`,
@@ -501,7 +569,7 @@ async function pollJob(jobId) {
     notice(error.message, true);
     if (error.status === 404) {
       setRunning(false);
-      sessionStorage.removeItem("model-connect-job");
+      writeSessionValue("model-connect-job", null);
       currentJob = null;
     } else pollTimer = setTimeout(() => pollJob(jobId), 2000);
   }
@@ -526,7 +594,7 @@ $("startProbe").addEventListener("click", async () => {
       force: $("force").checked,
     });
     currentJob = job.id;
-    sessionStorage.setItem("model-connect-job", job.id);
+    writeSessionValue("model-connect-job", job.id);
     renderJob(job);
     pollJob(job.id);
   } catch (error) {
@@ -559,12 +627,13 @@ for (const format of ["Json", "Csv"])
   });
 
 async function initialize() {
+  restoreConnectionSession();
   try {
     const data = await api("/api/health");
     $("healthLabel").textContent = "本地服务已连接";
     $("healthDot").classList.add("success-dot");
     $("version").textContent = `v${data.version}`;
-    currentJob = sessionStorage.getItem("model-connect-job");
+    currentJob = readSessionValue("model-connect-job");
     if (currentJob) await pollJob(currentJob);
   } catch {
     $("healthLabel").textContent = "本地服务连接失败";
