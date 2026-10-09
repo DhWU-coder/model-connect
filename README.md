@@ -36,9 +36,12 @@ model-connect end                   # 与 stop 相同
 model-connect status                # 查看地址、PID 和日志位置
 model-connect logs --lines 50        # 查看后台日志
 model-connect start --port 9000      # 指定监听端口
+model-connect start --host 127.0.0.1 # 仅允许本机访问
 ```
 
-默认访问 **http://127.0.0.1:8886**，不会自动打开浏览器。前台运行时也可按 `Ctrl+C` 停止。重复 `start` 会显示已有服务地址。监听端口被其他程序占用时会明确报错，不停止其他程序。
+默认监听 **0.0.0.0:8886**，本机访问 **http://127.0.0.1:8886**，同一局域网的设备访问 **http://服务器的局域网IP:8886**，不会自动打开浏览器。前台运行时也可按 `Ctrl+C` 停止。重复 `start` 会显示已有服务地址。监听端口被其他程序占用时会明确报错，不停止其他程序。
+
+旧版本已运行的服务仍沿用原监听地址；使用 `model-connect restart --host 0.0.0.0` 切换为局域网访问。
 
 使用虚拟环境安装后，也可在项目目录直接执行 `.venv/bin/model-connect start`。
 
@@ -107,7 +110,7 @@ Google 使用 Gemini Developer API 的 API Key，不包含 Vertex AI 的 IAM 认
 - Linux：`~/.local/state/model-connect/`
 - Windows：`%LOCALAPPDATA%\model-connect\`
 
-可通过 `MODEL_CONNECT_STATE_DIR` 指定独立目录；每个目录管理一个服务实例。默认仅监听回环地址，并拒绝来自其他网页的跨站请求。显式使用 `--host 0.0.0.0` 会开放局域网访问，本工具没有账号体系。
+可通过 `MODEL_CONNECT_STATE_DIR` 指定独立目录；每个目录管理一个服务实例。默认允许局域网访问，并拒绝来自其他网页的跨站请求。使用 `--host 127.0.0.1` 可限制为本机访问，本工具没有账号体系。
 
 ## 开发与验证
 
