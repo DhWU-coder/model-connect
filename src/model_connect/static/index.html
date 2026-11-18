@@ -97,6 +97,7 @@
               <input
                 id="baseUrl"
                 type="url"
+                value="https://tokenhub.sensetime.com/v1"
                 placeholder="https://api.example.com/v1"
                 spellcheck="false"
                 autocomplete="off"
@@ -285,16 +286,19 @@
                   >支持包含、开头、结尾和通配符匹配</span
                 >
               </div>
-              <div id="modelList" class="model-list">
-                <div class="empty catalog-empty">
-                  <span class="empty-icon">≋</span>
-                  <h3>先找到要检测的模型</h3>
-                  <p>连接 API 获取列表，或手动添加模型名称。</p>
-                  <span class="empty-providers"
-                    >OpenAI · Anthropic · Google Gemini</span
-                  >
-                </div>
+            </fieldset>
+            <!-- 检测中仅禁用勾选和编辑，模型 ID 仍可复制。 -->
+            <div id="modelList" class="model-list">
+              <div class="empty catalog-empty">
+                <span class="empty-icon">≋</span>
+                <h3>先找到要检测的模型</h3>
+                <p>连接 API 获取列表，或手动添加模型名称。</p>
+                <span class="empty-providers"
+                  >OpenAI · Anthropic · Google Gemini</span
+                >
               </div>
+            </div>
+            <fieldset id="manualFields">
               <details class="manual">
                 <summary>手动添加 / 导入模型列表</summary>
                 <div class="details-body">
@@ -475,6 +479,7 @@
         ><span>连接信息仅保留当前会话 · 支持局域网访问</span>
       </footer>
     </main>
+    <p id="copyFeedback" class="copy-feedback" role="status"></p>
     <!-- 原生弹窗管理键盘焦点，列表只使用已有检测结果。 -->
     <dialog
       id="resultModelsDialog"
@@ -497,6 +502,7 @@
       <p id="resultModelsSummary" class="muted small" aria-live="polite"></p>
       <ul id="resultModelsList" class="dialog-model-list"></ul>
       <p class="help">按调用协议分别记录，检测过程中自动更新。</p>
+      <p id="dialogCopyFeedback" class="copy-feedback" role="status"></p>
     </dialog>
   </body>
 </html>

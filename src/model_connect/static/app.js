@@ -138,6 +138,71 @@ function escapeHtml(value) {
   );
 }
 
+// 保存完整 ID，协议仅用于区分实时刷新中的同名按钮。
+function modelCopyButton(modelId, protocol = "") {
+  const key = escapeHtml(JSON.stringify([modelId, protocol]));
+  return `<button type="button" class="copy-model" data-copy-model="${key}" aria-label="复制模型 ID：${escapeHtml(modelId)}">复制</button>`;
+}
+
+function replaceCopyableRows(list, html) {
+  const active = document.activeElement;
+  const copyKey = list.contains(active) ? active.dataset.copyModel : undefined;
+  list.innerHTML = html;
+  // 轮询替换结果行后，把键盘焦点还给原来的复制按钮。
+  if (copyKey !== undefined) {
+    const button = [...list.querySelectorAll(".copy-model")].find(
+      (item) => item.dataset.copyModel === copyKey,
+    );
+    button?.focus({ preventScroll: true });
+  }
+}
+
+function copyWithSelection(modelId, container) {
+  // 局域网 HTTP 下 Clipboard API 可能不可用，使用临时选区复制。
+  const active = document.activeElement;
+  const buffer = document.createElement("textarea");
+  buffer.className = "copy-buffer";
+  buffer.value = modelId;
+  buffer.readOnly = true;
+  buffer.tabIndex = -1;
+  container.append(buffer);
+  try {
+    buffer.focus({ preventScroll: true });
+    buffer.select();
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    buffer.remove();
+    active?.focus({ preventScroll: true });
+  }
+}
+
+const copyFeedbackTimers = new WeakMap();
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest(".copy-model");
+  if (!button) return;
+  const [modelId] = JSON.parse(button.dataset.copyModel);
+  const dialog = button.closest("dialog");
+  const feedback = $(dialog ? "dialogCopyFeedback" : "copyFeedback");
+  let copied;
+  try {
+    await navigator.clipboard.writeText(modelId);
+    copied = true;
+  } catch {
+    // 临时选区放在当前弹窗内，避免被原生弹窗的焦点限制拦住。
+    copied = copyWithSelection(modelId, dialog || document.body);
+  }
+  feedback.textContent = copied
+    ? "已复制模型 ID"
+    : "复制失败，请手动复制模型 ID";
+  clearTimeout(copyFeedbackTimers.get(feedback));
+  copyFeedbackTimers.set(
+    feedback,
+    setTimeout(() => (feedback.textContent = ""), 2200),
+  );
+});
+
 function notice(message, error = false) {
   $("notice").hidden = !message;
   $("notice").textContent = message;
@@ -202,12 +267,19 @@ function connection() {
 }
 
 function setRunning(value) {
+  const changed = running !== value;
   running = value;
-  for (const id of ["connectionFields", "probeFields", "catalogFields"])
+  for (const id of [
+    "connectionFields",
+    "probeFields",
+    "catalogFields",
+    "manualFields",
+  ])
     $(id).disabled = value;
   $("cancelProbe").hidden = !value;
   $("startProbe").hidden = value;
-  updateSelection();
+  if (changed) renderModels();
+  else updateSelection();
 }
 
 function eligible(model) {
@@ -231,16 +303,22 @@ function updateSelection() {
 
 function renderModels() {
   $("catalogCount").textContent = models.length;
+  const list = $("modelList");
   if (!visibleModels.length) {
-    $("modelList").innerHTML =
-      `<div class="empty catalog-empty"><span class="empty-icon">≋</span><h3>${models.length ? "没有匹配的模型" : "先找到要检测的模型"}</h3><p>${models.length ? "调整筛选规则，再试一次。" : "连接 API 获取列表，或手动添加模型名称。"}</p><span class="empty-providers">OpenAI · Anthropic · Google Gemini</span></div>`;
+    list.innerHTML = `<div class="empty catalog-empty"><span class="empty-icon">≋</span><h3>${models.length ? "没有匹配的模型" : "先找到要检测的模型"}</h3><p>${models.length ? "调整筛选规则，再试一次。" : "连接 API 获取列表，或手动添加模型名称。"}</p><span class="empty-providers">OpenAI · Anthropic · Google Gemini</span></div>`;
   } else {
-    $("modelList").innerHTML = visibleModels
-      .map(
-        (model) =>
-          `<label class="model-row ${selected.has(model.id) ? "selected" : ""}" title="${escapeHtml(model.reason || model.name)}"><input type="checkbox" data-model="${escapeHtml(model.id)}" ${selected.has(model.id) ? "checked" : ""} ${!eligible(model) || running ? "disabled" : ""}><span class="model-name">${escapeHtml(model.id)}</span><span class="model-status">${model.supported === false ? "文本检测不适用" : "待实际验证"}</span></label>`,
-      )
-      .join("");
+    const rows = visibleModels.map((model) => {
+      const checked = selected.has(model.id);
+      return `<div class="model-row ${checked ? "selected" : ""}">
+        <label class="model-choice" title="${escapeHtml(model.reason || model.name)}">
+          <input type="checkbox" data-model="${escapeHtml(model.id)}" ${checked ? "checked" : ""} ${!eligible(model) || running ? "disabled" : ""}>
+          <span class="model-name">${escapeHtml(model.id)}</span>
+          <span class="model-status">${model.supported === false ? "文本检测不适用" : "待实际验证"}</span>
+        </label>
+        ${modelCopyButton(model.id)}
+      </div>`;
+    });
+    replaceCopyableRows(list, rows.join(""));
   }
   updateSelection();
 }
@@ -439,7 +517,7 @@ function renderResultModelsDialog() {
     messages: "Messages",
     generateContent: "generateContent",
   };
-  list.innerHTML = results.length
+  const rows = results.length
     ? results
         .map((result) => {
           const latency =
@@ -452,11 +530,12 @@ function renderResultModelsDialog() {
             status === "failed"
               ? result.error || "未提供错误详情"
               : result.text || "未提供回复文本";
-          return `<li class="dialog-model-row"><div class="dialog-model-heading"><code class="dialog-model-name">${escapeHtml(result.model)}</code><span class="status ${status}">${escapeHtml(protocolLabels[result.protocol] || result.protocol)}</span></div><p class="dialog-result-meta">HTTP ${escapeHtml(result.http_status ?? "未返回")} · ${escapeHtml(latency)}</p><pre class="dialog-result-text ${status === "failed" ? "result-error" : ""}">${escapeHtml(content)}</pre></li>`;
+          return `<li class="dialog-model-row"><div class="dialog-model-heading"><div class="model-id-with-copy"><code class="dialog-model-name">${escapeHtml(result.model)}</code>${modelCopyButton(result.model, result.protocol)}</div><span class="status ${status}">${escapeHtml(protocolLabels[result.protocol] || result.protocol)}</span></div><p class="dialog-result-meta">HTTP ${escapeHtml(result.http_status ?? "未返回")} · ${escapeHtml(latency)}</p><pre class="dialog-result-text ${status === "failed" ? "result-error" : ""}">${escapeHtml(content)}</pre></li>`;
         })
         .join("")
     : `<li class="empty dialog-empty">暂无${label}的模型${latestSnapshot?.status === "running" ? "，等待检测结果更新。" : "。"}</li>`;
-  // 检测结果刷新时保留当前阅读位置，关闭按钮的焦点也保持不变。
+  replaceCopyableRows(list, rows);
+  // 检测结果刷新时保留当前阅读位置。
   list.scrollTop = scrollTop;
 }
 
@@ -607,7 +686,7 @@ function renderJob(job) {
   );
   const filter = $("resultFilter").value;
   let shown = 0;
-  $("resultsBody").innerHTML = job.results
+  const rows = job.results
     .map((result, index) => {
       if (filter !== "all" && result.status !== filter) return "";
       if (
@@ -636,9 +715,10 @@ function renderJob(job) {
           : result.latency_ms < 1000
             ? `${result.latency_ms} ms`
             : `${(result.latency_ms / 1000).toFixed(2)} s`;
-      return `<tr><td><span class="result-model">${escapeHtml(result.model)}</span><span class="result-protocol">${escapeHtml(result.protocol)}</span></td><td><span class="status ${escapeHtml(result.status)}">${statusLabels[result.status] || escapeHtml(result.status)}</span>${result.error_code ? `<span class="error-label">${escapeHtml(errors[result.error_code] || result.error_code)}</span>` : ""}</td><td>${latency}</td><td><pre class="result-text ${result.error ? "result-error" : ""}">${escapeHtml(content)}</pre>${result.attempts ? `<details class="result-detail" data-index="${index}" ${expanded.has(String(index)) ? "open" : ""}><summary>请求详情</summary><pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre></details>` : ""}</td></tr>`;
+      return `<tr><td><div class="model-id-with-copy"><span class="result-model">${escapeHtml(result.model)}</span>${modelCopyButton(result.model, result.protocol)}</div><span class="result-protocol">${escapeHtml(result.protocol)}</span></td><td><span class="status ${escapeHtml(result.status)}">${statusLabels[result.status] || escapeHtml(result.status)}</span>${result.error_code ? `<span class="error-label">${escapeHtml(errors[result.error_code] || result.error_code)}</span>` : ""}</td><td>${latency}</td><td><pre class="result-text ${result.error ? "result-error" : ""}">${escapeHtml(content)}</pre>${result.attempts ? `<details class="result-detail" data-index="${index}" ${expanded.has(String(index)) ? "open" : ""}><summary>请求详情</summary><pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre></details>` : ""}</td></tr>`;
     })
     .join("");
+  replaceCopyableRows($("resultsBody"), rows);
   $("noResults").hidden = shown > 0;
   $("noResults").textContent = resultSearchState.pending
     ? "正在匹配模型名称…"

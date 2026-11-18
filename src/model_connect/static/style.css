@@ -331,7 +331,7 @@ label:not(
   .check-label,
   .case-switch,
   .file-button,
-  .model-row,
+  .model-choice,
   .theme-control
 ) {
   display: block;
@@ -625,7 +625,6 @@ select:disabled {
   gap: 10px;
   padding: 11px 13px;
   border-bottom: 1px solid var(--line);
-  cursor: pointer;
 }
 .model-row:last-child {
   border-bottom: 0;
@@ -633,11 +632,20 @@ select:disabled {
 .model-row:hover {
   background: var(--surface-hover);
 }
+.model-choice {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
 .model-name {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
   color: var(--soft-ink);
   word-break: break-word;
+  min-width: 0;
   flex: 1;
 }
 .model-status {
@@ -647,6 +655,61 @@ select:disabled {
 }
 .model-row.selected {
   background: var(--selected-bg);
+}
+/* 模型名和复制入口可换行，兼容窄屏及较长的模型 ID。 */
+.model-id-with-copy {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 7px;
+  min-width: 0;
+}
+.model-id-with-copy :is(.result-model, .dialog-model-name) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.copy-model {
+  flex: none;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--green);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.copy-model:hover {
+  background: var(--surface-hover);
+}
+.copy-model:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+/* 复制反馈脱离结果行，检测轮询时仍然可见。 */
+.copy-feedback {
+  position: fixed;
+  z-index: 1;
+  right: 14px;
+  bottom: 14px;
+  max-width: calc(100vw - 28px);
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12px;
+  pointer-events: none;
+}
+.copy-feedback:empty {
+  padding: 0;
+  border: 0;
+}
+.copy-buffer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  clip-path: inset(50%);
 }
 .manual {
   font-size: 11px;
